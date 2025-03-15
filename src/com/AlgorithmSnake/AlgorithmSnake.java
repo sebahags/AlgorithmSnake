@@ -77,9 +77,26 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
         return false;
     }
 
+    private List<Point> getPossibleDirections(Point currentDirection) {
+        List<Point> directions = new ArrayList<>();
+        // Add current direction
+        directions.add(new Point(currentDirection.x, currentDirection.y));
+        // Add perpendicular directions based on current direction
+        if (currentDirection.x != 0) { // Horizontal movement (left or right)
+            directions.add(new Point(0, 1));  // Down
+            directions.add(new Point(0, -1)); // Up
+        } else if (currentDirection.y != 0) { // Vertical movement (up or down)
+            directions.add(new Point(1, 0));  // Right
+            directions.add(new Point(-1, 0)); // Left
+        }
+        return directions;
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
         System.out.println("Game loop tick");
+        List<Snake> snakesToRemove = new ArrayList<>();
+
         for (Snake snake : snakes) {
             List<List<Point>> allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList());
             List<Point> path;
@@ -94,39 +111,63 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
                 path = new ArrayList<>(); // Fallback to empty path
             }
             System.out.println("Path for " + snake.color + " snake: " + path);
+
+            boolean moved = false;
             if (!path.isEmpty()) {
                 Point nextPosition = path.get(0);
                 if (!willCollide(snake, nextPosition)) {
                     snake.setDirection(nextPosition);
                     snake.move();
-                } else {
-                    allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList());
-                    if (snake.algorithm == PathAlgorithm.ASTAR) {
-                        path = Pathfinder.aStar(snake, eatable, allBodies, snake.optimal, MIN_POS, MAX_POS);
-                    } else if (snake.algorithm == PathAlgorithm.BFS) {
-                        path = Pathfinder.bfs(snake, eatable, allBodies, snake.optimal, MIN_POS, MAX_POS);
-                    } else if (snake.algorithm == PathAlgorithm.DIJKSTRA) {
-                        path = Pathfinder.dijkstra(snake, eatable, allBodies, snake.optimal, MIN_POS, MAX_POS);
-                    }
-                    if (!path.isEmpty() && !willCollide(snake, path.get(0))) {
-                        snake.setDirection(path.get(0));
-                        snake.move();
-                    }
+                    moved = true;
                 }
-            } else {
+                // Note: We skip recalculation since it’s redundant (environment hasn’t changed)
+            }
+
+            if (!moved) {
+                // Try current direction (fallback)
                 Point newHead = new Point(snake.getHead().x + snake.direction.x,
                         snake.getHead().y + snake.direction.y);
                 if (!willCollide(snake, newHead)) {
                     snake.move();
+                    moved = true;
+                } else {
+                    // Both path and fallback are blocked; check three possible directions
+                    List<Point> possibleDirections = getPossibleDirections(snake.direction);
+                    for (Point dir : possibleDirections) {
+                        Point testHead = new Point(snake.getHead().x + dir.x, snake.getHead().y + dir.y);
+                        if (!willCollide(snake, testHead)) {
+                            snake.setDirection(testHead);
+                            snake.move();
+                            moved = true;
+                            break; // Move to the first safe direction found
+                        }
+                    }
+                    // If still hasn’t moved, all directions are blocked
+                    if (!moved) {
+                        snakesToRemove.add(snake);
+                    }
                 }
             }
+
+            // Handle eating
             if (snake.getHead().equals(eatable.position)) {
                 snake.eatEatable();
                 eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
             }
-            greenScoreLabel.setText("ASTAR: " + snakes.get(0).score);
-            redScoreLabel.setText("BFS: " + snakes.get(1).score);
-            blueScoreLabel.setText("DIJKSTRA: " + snakes.get(2).score);
+        }
+
+        // Remove snakes that couldn’t move
+        snakes.removeAll(snakesToRemove);
+
+        // Update scores safely (since snakes may have been removed)
+        for (Snake snake : snakes) {
+            if (snake.color == Color.GREEN) {
+                greenScoreLabel.setText("ASTAR: " + snake.score);
+            } else if (snake.color == Color.RED) {
+                redScoreLabel.setText("BFS: " + snake.score);
+            } else if (snake.color == Color.BLUE) {
+                blueScoreLabel.setText("DIJKSTRA: " + snake.score);
+            }
         }
         repaint();
     }
