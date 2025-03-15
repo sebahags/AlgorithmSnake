@@ -1,5 +1,4 @@
 package com.AlgorithmSnake;
-
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
@@ -13,13 +12,15 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
     private static final int HEIGHT = 100;
     private static final int UNIT_SIZE = 5;
     private static final int GAME_SPEED = 50; // Milliseconds per move
+    private boolean optimal;
 
     // Game objects
     private Snake snake;
     private Eatable eatable;
     private javax.swing.Timer timer;
 
-    public AlgorithmSnake() {
+    public AlgorithmSnake(boolean optimal) {
+        this.optimal = optimal;
         setPreferredSize(new Dimension(WIDTH * UNIT_SIZE, HEIGHT * UNIT_SIZE));
         setBackground(Color.BLACK);
 
@@ -36,7 +37,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
         // Find path using A*
-        List<Point> path = Pathfinder.aStar(snake, eatable);
+        List<Point> path = Pathfinder.aStar(snake, eatable, optimal);
 
         // Move snake based on path
         if (!path.isEmpty()) {
@@ -79,7 +80,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("A* Snake Game");
-        AlgorithmSnake game = new AlgorithmSnake();
+        AlgorithmSnake game = new AlgorithmSnake(false);
         frame.add(game);
         frame.pack();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -135,7 +136,7 @@ class Eatable {
 
 // -------------------- Pathfinder (A* Algorithm) --------------------
 class Pathfinder {
-    public static List<Point> aStar(Snake snake, Eatable eatable) {
+    public static List<Point> aStar(Snake snake, Eatable eatable, boolean optimal) {
         PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> n.f));
         Map<Point, Node> nodes = new HashMap<>();
         Set<Point> visited = new HashSet<>();
@@ -167,6 +168,9 @@ class Pathfinder {
                     neighborNode.f = g + h;
                     neighborNode.parent = current;
                     nodes.put(neighbor, neighborNode);
+                    if (!optimal && neighbor.equals(end)) {
+                        return reconstructPath(neighborNode);
+                    }
                     queue.add(neighborNode);
                 }
             }
