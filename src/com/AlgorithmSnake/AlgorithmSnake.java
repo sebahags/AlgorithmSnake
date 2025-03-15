@@ -5,6 +5,7 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class AlgorithmSnake extends JPanel implements ActionListener {
     // Game constants
@@ -13,9 +14,13 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
     private static final int UNIT_SIZE = 5;
     private static final int GAME_SPEED = 50; // Milliseconds per move
     private boolean optimal;
+    private static final int MIN_POS = 1;
+    private static final int MAX_POS = 98;
 
     // Game objects
-    private Snake snake;
+    private List<Snake> snakes;
+    private Snake greenSnake;
+    private Snake redSnake;
     private Eatable eatable;
     private javax.swing.Timer timer;
 
@@ -23,36 +28,81 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
         this.optimal = optimal;
         setPreferredSize(new Dimension(WIDTH * UNIT_SIZE, HEIGHT * UNIT_SIZE));
         setBackground(Color.BLACK);
+        snakes = new ArrayList<>();
 
         // Initialize snake and eatable
-        snake = new Snake(new Point(50, 50));
+        snakes.add(new Snake(new Point(50, 50), Color.GREEN, true));
+        snakes.add(new Snake(new Point(10, 20), Color.RED, false));
         eatable = new Eatable();
-        eatable.spawn(snake.body);
+        eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
 
         // Start game loop
         timer = new javax.swing.Timer(GAME_SPEED, this);
         timer.start();
     }
 
+    private boolean willCollide(Snake currentSnake, Point nextPosition){
+        // Check boundaries: only allow positions from 1 to 98 inclusive
+        if (nextPosition.x < MIN_POS || nextPosition.x > MAX_POS || nextPosition.y < MIN_POS || nextPosition.y > MAX_POS) {
+            return true;
+        }
+
+        // Check collision with all snakes (unchanged)
+        for (Snake snake : snakes) {
+            for (int i = 0; i < snake.body.size(); i++) {
+                Point p = snake.body.get(i);
+                if (p.equals(nextPosition)) {
+                    // Allow current snake to move into its own tail
+                    if (snake == currentSnake && i == snake.body.size() - 1) {
+                        continue;
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @Override
     public void actionPerformed(ActionEvent e) {
-        // Find path using A*
-        List<Point> path = Pathfinder.aStar(snake, eatable, optimal);
+        System.out.println("Game loop tick");
+        for (Snake snake : snakes) {
+            // Gather all snake bodies as obstacles
+            List<List<Point>> allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList());
 
-        // Move snake based on path
-        if (!path.isEmpty()) {
-            Point nextMove = path.get(0);
-            snake.setDirection(nextMove);
+            // Find path using the snake's optimal setting
+            List<Point> path = Pathfinder.aStar(snake, eatable, allBodies, snake.optimal);
+            System.out.println("Path for " + snake.color + " snake: " + path);
+
+            if (!path.isEmpty()) {
+                Point nextPosition = path.get(0);
+                if (!willCollide(snake, nextPosition)) {
+                    snake.setDirection(nextPosition);
+                    snake.move();
+                } else {
+                    // Recalculate path if there's a collision
+                    allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList()); // Reassign, no new declaration
+                    path = Pathfinder.aStar(snake, eatable, allBodies, snake.optimal);
+                    if (!path.isEmpty() && !willCollide(snake, path.get(0))) {
+                        snake.setDirection(path.get(0));
+                        snake.move();
+                    }
+                }
+            } else {
+                // Fallback movement if no path exists
+                Point newHead = new Point(snake.getHead().x + snake.direction.x,
+                        snake.getHead().y + snake.direction.y);
+                if (!willCollide(snake, newHead)) {
+                    snake.move();
+                }
+            }
+
+            // Check if snake eats the eatable
+            if (snake.getHead().equals(eatable.position)) {
+                snake.grow();
+                eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
+            }
         }
-
-        snake.move();
-
-        // Check if snake eats the eatable
-        if (snake.getHead().equals(eatable.position)) {
-            snake.grow();
-            eatable.spawn(snake.body);
-        }
-
         repaint();
     }
 
@@ -68,13 +118,11 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
         g.fillRect(WIDTH * UNIT_SIZE - UNIT_SIZE, 0, UNIT_SIZE, HEIGHT * UNIT_SIZE);
 
         // Draw eatable
-        g.setColor(Color.YELLOW);
-        g.fillRect(eatable.position.x * UNIT_SIZE, eatable.position.y * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        eatable.Paint(g, UNIT_SIZE);
 
         // Draw snake
-        g.setColor(Color.GREEN);
-        for (Point p : snake.body) {
-            g.fillRect(p.x * UNIT_SIZE, p.y * UNIT_SIZE, UNIT_SIZE, UNIT_SIZE);
+        for (Snake snake : snakes){
+            snake.Paint(g, UNIT_SIZE);
         }
     }
 
@@ -92,8 +140,12 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
 class Snake {
     List<Point> body;
     Point direction;
+    Color color;
+    boolean optimal;
 
-    public Snake(Point start) {
+    public Snake(Point start, Color color, boolean optimal) {
+        this.color = color;
+        this.optimal = optimal;
         body = new ArrayList<>();
         direction = new Point(1, 0); // Moves right initially
 
@@ -120,23 +172,35 @@ class Snake {
     public void grow() {
         body.add(new Point(body.get(body.size() - 1))); // Add at tail
     }
+
+    public void Paint(Graphics g, int unitSize){
+        g.setColor(color);
+        for (Point p : body){
+            g.fillRect(p.x * unitSize, p.y * unitSize, unitSize, unitSize);
+        }
+    }
 }
 
 // -------------------- Eatable Class --------------------
 class Eatable {
     Point position;
 
-    public void spawn(List<Point> snakeBody) {
+    public void Paint(Graphics g, int unitSize){
+        g.setColor(Color.YELLOW);
+        g.fillRect(position.x * unitSize, position.y * unitSize, unitSize, unitSize);
+    }
+
+    public void spawn(List<List<Point>> allSnakeBodies) {
         Random random = new Random();
         do {
             position = new Point(random.nextInt(98) + 1, random.nextInt(98) + 1);
-        } while (snakeBody.contains(position)); // Ensure it doesn't spawn inside the snake
+        } while (allSnakeBodies.stream().anyMatch(body -> body.contains(position))); // Ensure it doesn't spawn inside the snake
     }
 }
 
 // -------------------- Pathfinder (A* Algorithm) --------------------
 class Pathfinder {
-    public static List<Point> aStar(Snake snake, Eatable eatable, boolean optimal) {
+    public static List<Point> aStar(Snake snake, Eatable eatable, List<List<Point>> allSnakeBodies, boolean optimal) {
         PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> n.f));
         Map<Point, Node> nodes = new HashMap<>();
         Set<Point> visited = new HashSet<>();
@@ -151,16 +215,18 @@ class Pathfinder {
         while (!queue.isEmpty()) {
             Node current = queue.poll();
             if (current.position.equals(end)) {
-                return reconstructPath(current);
+                return reconstructPath(current); // Found a path
             }
 
             visited.add(current.position);
 
             for (Point neighbor : getNeighbors(current.position)) {
-                if (visited.contains(neighbor) || snake.body.contains(neighbor)) continue;
+                if (visited.contains(neighbor) || isObstacle(neighbor, allSnakeBodies)) {
+                    continue;
+                }
 
-                int g = current.g + 1;
-                int h = heuristic(neighbor, end);
+                int g = current.g + 1; // Cost to neighbor
+                int h = heuristic(neighbor, end); // Heuristic to goal
                 Node neighborNode = nodes.getOrDefault(neighbor, new Node(neighbor, null, Integer.MAX_VALUE, h));
 
                 if (g < neighborNode.g) {
@@ -168,6 +234,8 @@ class Pathfinder {
                     neighborNode.f = g + h;
                     neighborNode.parent = current;
                     nodes.put(neighbor, neighborNode);
+
+                    // If non-optimal and target reached, return immediately
                     if (!optimal && neighbor.equals(end)) {
                         return reconstructPath(neighborNode);
                     }
@@ -175,41 +243,45 @@ class Pathfinder {
                 }
             }
         }
-
         return new ArrayList<>(); // No path found
     }
 
     private static int heuristic(Point a, Point b) {
-        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
-    }
-
-    private static List<Point> getNeighbors(Point p) {
-        List<Point> neighbors = new ArrayList<>();
-        if (p.x > 1) neighbors.add(new Point(p.x - 1, p.y));
-        if (p.x < 98) neighbors.add(new Point(p.x + 1, p.y));
-        if (p.y > 1) neighbors.add(new Point(p.x, p.y - 1));
-        if (p.y < 98) neighbors.add(new Point(p.x, p.y + 1));
-        return neighbors;
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); // Manhattan distance
     }
 
     private static List<Point> reconstructPath(Node node) {
         List<Point> path = new ArrayList<>();
-        while (node != null) {
-            path.add(node.position);
+        // Start from the parent of the end node to exclude the start position
+        while (node.parent != null) {
+            path.add(0, node.position);
             node = node.parent;
         }
-        Collections.reverse(path);
-        return path.subList(1, path.size()); // Remove the start position
+        return path;
+    }
+
+    private static List<Point> getNeighbors(Point p) {
+        List<Point> neighbors = new ArrayList<>();
+        if (p.x < 98) neighbors.add(new Point(p.x + 1, p.y)); // Right
+        if (p.x > 1) neighbors.add(new Point(p.x - 1, p.y)); // Left
+        if (p.y < 98) neighbors.add(new Point(p.x, p.y + 1)); // Down
+        if (p.y > 1) neighbors.add(new Point(p.x, p.y - 1)); // Up
+        return neighbors;
+    }
+
+    private static boolean isObstacle(Point p, List<List<Point>> bodies) {
+        return bodies.stream().anyMatch(body -> body.contains(p));
     }
 }
 
-// -------------------- Node Class for A* --------------------
+// Helper class for A* nodes
 class Node {
     Point position;
     Node parent;
-    int g, f;
+    int g; // Cost from start
+    int f; // g + heuristic
 
-    public Node(Point position, Node parent, int g, int h) {
+    Node(Point position, Node parent, int g, int h) {
         this.position = position;
         this.parent = parent;
         this.g = g;
