@@ -48,8 +48,8 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
         this.add(blueScoreLabel);
         // Initialize snake and eatable
         snakes.add(new Snake(new Point(40, 55), Color.GREEN, PathAlgorithm.ASTAR, true));
-        snakes.add(new Snake(new Point(75, 75), Color.RED, PathAlgorithm.BFS, false));
-        snakes.add(new Snake(new Point(25, 30), Color.BLUE, PathAlgorithm.DIJKSTRA, true));
+        snakes.add(new Snake(new Point(20, 30), Color.RED, PathAlgorithm.BFS, true));
+        snakes.add(new Snake(new Point(75, 75), Color.BLUE, PathAlgorithm.DIJKSTRA, true));
         eatable = new Eatable();
         eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
         // Start game loop
