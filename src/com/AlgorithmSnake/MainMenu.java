@@ -9,6 +9,7 @@ public class MainMenu extends JPanel {
 
     public MainMenu (JFrame frame) {
         this.frame = frame;
+        setPreferredSize(new Dimension(800, 600));
         setLayout(new GridBagLayout());
         setBackground(Color.BLACK);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -16,14 +17,18 @@ public class MainMenu extends JPanel {
 
         JButton simulationButton = new JButton("Simulation");
         JButton playButton = new JButton("Play");
+        JButton exitButton = new JButton("Exit");
 
         simulationButton.addActionListener(e -> startGame(false)); // AI only
         playButton.addActionListener(e -> startGame(true)); // Player mode
+        exitButton.addActionListener(e -> System.exit(0));
 
         gbc.gridy = 0;
         add(simulationButton, gbc);
         gbc.gridy = 1;
         add(playButton, gbc);
+        gbc.gridy = 2;
+        add(exitButton, gbc);
     }
 
     private void startGame(boolean isPlayerMode) {
