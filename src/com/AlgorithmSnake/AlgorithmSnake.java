@@ -3,11 +3,13 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.KeyListener;
+import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
-public class AlgorithmSnake extends JPanel implements ActionListener {
+public class AlgorithmSnake extends JPanel implements ActionListener, KeyListener {
     // Game constants
     private static final int WIDTH = 100;
     private static final int HEIGHT = 100;
@@ -24,35 +26,56 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
     private JLabel greenScoreLabel;
     private JLabel redScoreLabel;
     private JLabel blueScoreLabel;
+    private JLabel playerScoreLabel;
+    private boolean playerMode;
+    private Snake playerSnake;
+    private boolean gameOver = false;
     enum PathAlgorithm{
         ASTAR,
         BFS,
         DIJKSTRA
     }
-    public AlgorithmSnake() {
+    public AlgorithmSnake(boolean playerMode) {
+        this.playerMode = playerMode;
         setPreferredSize(new Dimension(WIDTH * UNIT_SIZE, HEIGHT * UNIT_SIZE));
         setBackground(Color.BLACK);
-        snakes = new ArrayList<>();
-        // Initialize score labels
+        setFocusable(true);
+        addKeyListener(this); // Enable keyboard input
+
+        setLayout(null);
+        // Initialize score labels for AI snakes
         greenScoreLabel = new JLabel("ASTAR: 0");
         redScoreLabel = new JLabel("BFS: 0");
         blueScoreLabel = new JLabel("DIJKSTRA: 0");
-        // Set positions using absolute layout (simplest approach)
-        this.setLayout(null);
         greenScoreLabel.setBounds(10, 10, 100, 20);
         redScoreLabel.setBounds(10, 30, 100, 20);
         blueScoreLabel.setBounds(10, 50, 100, 20);
-        // Add labels to the panel
-        this.add(greenScoreLabel);
-        this.add(redScoreLabel);
-        this.add(blueScoreLabel);
-        // Initialize snake and eatable
+        add(greenScoreLabel);
+        add(redScoreLabel);
+        add(blueScoreLabel);
+        // Initialize snake list and score labels (optional, add labels to your UI as needed)
+        snakes = new ArrayList<>();
+
+        // If player mode is enabled, create the player snake (magenta) at a fixed start point.
+        if (playerMode) {
+            playerSnake = new Snake(new Point(50, 50), Color.MAGENTA, null, false);
+            snakes.add(playerSnake);
+
+            playerScoreLabel = new JLabel("PLAYER: 0");
+            playerScoreLabel.setBounds(10, 70, 100, 20);
+            add(playerScoreLabel);
+        }
+
+        // Add AI-controlled snakes
         snakes.add(new Snake(new Point(40, 55), Color.GREEN, PathAlgorithm.ASTAR, true));
         snakes.add(new Snake(new Point(20, 30), Color.RED, PathAlgorithm.BFS, true));
         snakes.add(new Snake(new Point(75, 75), Color.BLUE, PathAlgorithm.DIJKSTRA, true));
+
+        // Create and spawn the eatable
         eatable = new Eatable();
         eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
-        // Start game loop
+
+        // Start game loop timer
         timer = new javax.swing.Timer(GAME_SPEED, this);
         timer.start();
     }
@@ -94,13 +117,20 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
 
     @Override
     public void actionPerformed(ActionEvent e) {
-        System.out.println("Game loop tick");
+        if (gameOver) return;
+
         List<Snake> snakesToRemove = new ArrayList<>();
 
-        for (Snake snake : snakes) {
+        // Iterate over a copy of the list to avoid concurrent modification
+        for (Snake snake : new ArrayList<>(snakes)) {
             List<List<Point>> allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList());
+
+            if (playerMode && snake == playerSnake) {
+                movePlayerSnake(snakesToRemove);
+                continue;
+            }
+
             List<Point> path;
-            // Select pathfinding algorithm based on snake’s algorithm field
             if (snake.algorithm == PathAlgorithm.ASTAR) {
                 path = Pathfinder.aStar(snake, eatable, allBodies, snake.optimal, MIN_POS, MAX_POS);
             } else if (snake.algorithm == PathAlgorithm.BFS) {
@@ -108,7 +138,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
             } else if (snake.algorithm == PathAlgorithm.DIJKSTRA) {
                 path = Pathfinder.dijkstra(snake, eatable, allBodies, snake.optimal, MIN_POS, MAX_POS);
             } else {
-                path = new ArrayList<>(); // Fallback to empty path
+                path = new ArrayList<>();
             }
             System.out.println("Path for " + snake.color + " snake: " + path);
 
@@ -120,18 +150,13 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
                     snake.move();
                     moved = true;
                 }
-                // Note: We skip recalculation since it’s redundant (environment hasn’t changed)
             }
-
             if (!moved) {
-                // Try current direction (fallback)
-                Point newHead = new Point(snake.getHead().x + snake.direction.x,
-                        snake.getHead().y + snake.direction.y);
+                Point newHead = new Point(snake.getHead().x + snake.direction.x, snake.getHead().y + snake.direction.y);
                 if (!willCollide(snake, newHead)) {
                     snake.move();
                     moved = true;
                 } else {
-                    // Both path and fallback are blocked; check three possible directions
                     List<Point> possibleDirections = getPossibleDirections(snake.direction);
                     for (Point dir : possibleDirections) {
                         Point testHead = new Point(snake.getHead().x + dir.x, snake.getHead().y + dir.y);
@@ -139,27 +164,22 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
                             snake.setDirection(testHead);
                             snake.move();
                             moved = true;
-                            break; // Move to the first safe direction found
+                            break;
                         }
                     }
-                    // If still hasn’t moved, all directions are blocked
                     if (!moved) {
                         snakesToRemove.add(snake);
                     }
                 }
             }
 
-            // Handle eating
             if (snake.getHead().equals(eatable.position)) {
                 snake.eatEatable();
                 eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
             }
         }
 
-        // Remove snakes that couldn’t move
-        snakes.removeAll(snakesToRemove);
-
-        // Update scores safely (since snakes may have been removed)
+        // Update scores (omitted here for brevity)
         for (Snake snake : snakes) {
             if (snake.color == Color.GREEN) {
                 greenScoreLabel.setText("ASTAR: " + snake.score);
@@ -167,9 +187,36 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
                 redScoreLabel.setText("BFS: " + snake.score);
             } else if (snake.color == Color.BLUE) {
                 blueScoreLabel.setText("DIJKSTRA: " + snake.score);
+            } else if (playerMode && snake == playerSnake) {
+                playerScoreLabel.setText("PLAYER: " + snake.score);
             }
         }
+        // Remove snakes marked for removal
+        snakes.removeAll(snakesToRemove);
+
+        if (snakes.size() <= 1) {
+            gameOver = true;
+            timer.stop();
+        }
+
         repaint();
+    }
+
+    private void movePlayerSnake(List<Snake> snakesToRemove) {
+        if (playerSnake == null) return;
+        Point newHead = new Point(playerSnake.getHead().x + playerSnake.direction.x,
+                playerSnake.getHead().y + playerSnake.direction.y);
+        if (willCollide(playerSnake, newHead)) {
+            // Mark the player snake for removal.
+            snakesToRemove.add(playerSnake);
+            playerSnake = null;
+        } else {
+            playerSnake.move();
+            if (playerSnake.getHead().equals(eatable.position)) {
+                playerSnake.eatEatable();
+                eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
+            }
+        }
     }
 
     @Override
@@ -187,15 +234,74 @@ public class AlgorithmSnake extends JPanel implements ActionListener {
         for (Snake snake : snakes){
             snake.Paint(g, UNIT_SIZE);
         }
+        if (gameOver) {
+            g.setColor(Color.WHITE);
+            g.setFont(new Font("Arial", Font.BOLD, 20));
+            String winner = "No one";
+            if (snakes.size() == 1) {
+                Snake winSnake = snakes.get(0);
+                winner = (winSnake.algorithm == null) ? "PLAYER" : winSnake.algorithm.name();
+            }
+            String text = "Game Over, " + winner + " won! Esc for main menu.";
+            FontMetrics fm = g.getFontMetrics();
+            int textWidth = fm.stringWidth(text);
+            int x = (WIDTH * UNIT_SIZE - textWidth) / 2;
+            int y = HEIGHT * UNIT_SIZE / 2;
+            g.drawString(text, x, y);
+        }
+    }
+
+    // KeyListener implementations
+    @Override
+    public void keyPressed(KeyEvent e) {
+        if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
+            // Stop the timer if it's still running.
+            if (timer != null && timer.isRunning()) {
+                timer.stop();
+            }
+            // Get the frame, remove the game panel and add a new MainMenu.
+            JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
+            frame.getContentPane().removeAll();
+            MainMenu menu = new MainMenu(frame);
+            frame.add(menu);
+            frame.pack();  // The MainMenu has its preferred size set.
+            frame.revalidate();
+            frame.repaint();
+            return;
+        }
+
+        if (playerSnake == null) return;
+
+        int key = e.getKeyCode();
+        Point currentDir = playerSnake.direction;
+
+        if (key == KeyEvent.VK_RIGHT) {
+            // Rotate 90 degrees to the left
+            playerSnake.direction = new Point(-currentDir.y, currentDir.x);
+        } else if (key == KeyEvent.VK_LEFT) {
+            // Rotate 90 degrees to the right
+            playerSnake.direction = new Point(currentDir.y, -currentDir.x);
+        }
+    }
+
+    @Override
+    public void keyReleased(KeyEvent e) {
+        // No action needed here.
+    }
+
+    @Override
+    public void keyTyped(KeyEvent e) {
+        // No action needed here.
     }
 
     public static void main(String[] args) {
         JFrame frame = new JFrame("Battle of Algorithms");
-        AlgorithmSnake game = new AlgorithmSnake();
-        frame.add(game);
-        frame.pack();
-        frame.setResizable(false);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        frame.setSize(800, 600);
+        frame.setResizable(false);
+
+        MainMenu menu = new MainMenu(frame);
+        frame.add(menu);
         frame.setVisible(true);
     }
 }
