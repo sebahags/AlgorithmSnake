@@ -35,7 +35,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         BFS,
         DIJKSTRA
     }
-    public AlgorithmSnake(boolean playerMode) {
+    public AlgorithmSnake(boolean playerMode, int gameSpeed) {
         this.playerMode = playerMode;
         setPreferredSize(new Dimension(WIDTH * UNIT_SIZE, HEIGHT * UNIT_SIZE));
         setBackground(Color.BLACK);
@@ -76,7 +76,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
 
         // Start game loop timer
-        timer = new javax.swing.Timer(GAME_SPEED, this);
+        timer = new javax.swing.Timer(gameSpeed, this);
         timer.start();
     }
     private boolean willCollide(Snake currentSnake, Point nextPosition){
