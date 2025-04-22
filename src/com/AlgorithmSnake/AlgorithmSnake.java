@@ -8,7 +8,7 @@ import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
-
+// classes for the gameloop/rendering, snakes, eatable, pathfinder and node
 public class AlgorithmSnake extends JPanel implements ActionListener, KeyListener {
     private static final int WIDTH = 100;
     private static final int HEIGHT = 100;
