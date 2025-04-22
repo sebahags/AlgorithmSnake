@@ -8,7 +8,7 @@ public class MainMenu extends JPanel {
     private JFrame frame;
     private JComboBox<String> difficultyDropdown;
 
-    public MainMenu (JFrame frame) {
+    public MainMenu(JFrame frame) {
         this.frame = frame;
         setPreferredSize(new Dimension(800, 600));
         setLayout(new GridBagLayout());
@@ -19,12 +19,9 @@ public class MainMenu extends JPanel {
         JButton simulationButton = new JButton("Simulation");
         JButton playButton = new JButton("Play");
         JButton exitButton = new JButton("Exit");
-
-        // Create the difficulty dropdown.
         String[] difficulties = {"Slugg Fest", "Medium", "Deranged"};
         difficultyDropdown = new JComboBox<>(difficulties);
-        // Optionally, set a default selection.
-        difficultyDropdown.setSelectedIndex(1); // Medium by default.
+        difficultyDropdown.setSelectedIndex(1);
 
         simulationButton.addActionListener(e -> startGame(false)); // AI only
         playButton.addActionListener(e -> startGame(true)); // Player mode
@@ -38,7 +35,6 @@ public class MainMenu extends JPanel {
         add(playButton, gbc);
         gbc.gridy = 3;
         add(exitButton, gbc);
-
     }
 
     private void startGame(boolean isPlayerMode) {
@@ -49,7 +45,7 @@ public class MainMenu extends JPanel {
         frame.pack();
         frame.revalidate();
         frame.repaint();
-        game.requestFocusInWindow(); // Ensure key listener works
+        game.requestFocusInWindow();
     }
 
     private int getGameSpeedFromSelection() {
@@ -58,7 +54,7 @@ public class MainMenu extends JPanel {
             return 90;
         } else if ("Deranged".equals(selection)) {
             return 25;
-        } else { // Medium or default.
+        } else {
             return 55;
         }
     }
