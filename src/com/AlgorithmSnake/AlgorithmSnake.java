@@ -8,16 +8,14 @@ import java.awt.event.KeyEvent;
 import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
-
+// classes for the gameloop/rendering, snakes, eatable, pathfinder and node
 public class AlgorithmSnake extends JPanel implements ActionListener, KeyListener {
-    // Game constants
     private static final int WIDTH = 100;
     private static final int HEIGHT = 100;
     private static final int UNIT_SIZE = 5;
     private static final int GAME_SPEED = 50; // Milliseconds per move
     private static final int MIN_POS = 1;
     private static final int MAX_POS = 98;
-    // Game objects
     private List<Snake> snakes;
     private Snake greenSnake;
     private Snake redSnake;
@@ -35,15 +33,13 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         BFS,
         DIJKSTRA
     }
-    public AlgorithmSnake(boolean playerMode) {
+    public AlgorithmSnake(boolean playerMode, int gameSpeed) {
         this.playerMode = playerMode;
         setPreferredSize(new Dimension(WIDTH * UNIT_SIZE, HEIGHT * UNIT_SIZE));
         setBackground(Color.BLACK);
         setFocusable(true);
-        addKeyListener(this); // Enable keyboard input
-
+        addKeyListener(this);
         setLayout(null);
-        // Initialize score labels for AI snakes
         greenScoreLabel = new JLabel("ASTAR: 0");
         redScoreLabel = new JLabel("BFS: 0");
         blueScoreLabel = new JLabel("DIJKSTRA: 0");
@@ -53,10 +49,8 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         add(greenScoreLabel);
         add(redScoreLabel);
         add(blueScoreLabel);
-        // Initialize snake list and score labels (optional, add labels to your UI as needed)
         snakes = new ArrayList<>();
 
-        // If player mode is enabled, create the player snake (magenta) at a fixed start point.
         if (playerMode) {
             playerSnake = new Snake(new Point(50, 50), Color.MAGENTA, null, false);
             snakes.add(playerSnake);
@@ -66,30 +60,24 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
             add(playerScoreLabel);
         }
 
-        // Add AI-controlled snakes
         snakes.add(new Snake(new Point(40, 55), Color.GREEN, PathAlgorithm.ASTAR, true));
         snakes.add(new Snake(new Point(20, 30), Color.RED, PathAlgorithm.BFS, true));
         snakes.add(new Snake(new Point(75, 75), Color.BLUE, PathAlgorithm.DIJKSTRA, true));
 
-        // Create and spawn the eatable
         eatable = new Eatable();
         eatable.spawn(snakes.stream().map(s -> s.body).collect(Collectors.toList()));
 
-        // Start game loop timer
-        timer = new javax.swing.Timer(GAME_SPEED, this);
+        timer = new javax.swing.Timer(gameSpeed, this);
         timer.start();
     }
     private boolean willCollide(Snake currentSnake, Point nextPosition){
-        // Check boundaries: only allow positions from 1 to 98 inclusive
         if (nextPosition.x < MIN_POS || nextPosition.x > MAX_POS || nextPosition.y < MIN_POS || nextPosition.y > MAX_POS) {
             return true;
         }
-        // Check collision with all snakes (unchanged)
         for (Snake snake : snakes) {
             for (int i = 0; i < snake.body.size(); i++) {
                 Point p = snake.body.get(i);
                 if (p.equals(nextPosition)) {
-                    // Allow current snake to move into its own tail
                     if (snake == currentSnake && i == snake.body.size() - 1) {
                         continue;
                     }
@@ -102,15 +90,14 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
 
     private List<Point> getPossibleDirections(Point currentDirection) {
         List<Point> directions = new ArrayList<>();
-        // Add current direction
         directions.add(new Point(currentDirection.x, currentDirection.y));
-        // Add perpendicular directions based on current direction
-        if (currentDirection.x != 0) { // Horizontal movement (left or right)
-            directions.add(new Point(0, 1));  // Down
-            directions.add(new Point(0, -1)); // Up
-        } else if (currentDirection.y != 0) { // Vertical movement (up or down)
-            directions.add(new Point(1, 0));  // Right
-            directions.add(new Point(-1, 0)); // Left
+        //perpendicular dir
+        if (currentDirection.x != 0) {
+            directions.add(new Point(0, 1));
+            directions.add(new Point(0, -1));
+        } else if (currentDirection.y != 0) {
+            directions.add(new Point(1, 0));
+            directions.add(new Point(-1, 0));
         }
         return directions;
     }
@@ -118,13 +105,10 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
     @Override
     public void actionPerformed(ActionEvent e) {
         if (gameOver) return;
-
         List<Snake> snakesToRemove = new ArrayList<>();
 
-        // Iterate over a copy of the list to avoid concurrent modification
         for (Snake snake : new ArrayList<>(snakes)) {
             List<List<Point>> allBodies = snakes.stream().map(s -> s.body).collect(Collectors.toList());
-
             if (playerMode && snake == playerSnake) {
                 movePlayerSnake(snakesToRemove);
                 continue;
@@ -179,7 +163,6 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
             }
         }
 
-        // Update scores (omitted here for brevity)
         for (Snake snake : snakes) {
             if (snake.color == Color.GREEN) {
                 greenScoreLabel.setText("ASTAR: " + snake.score);
@@ -191,7 +174,7 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
                 playerScoreLabel.setText("PLAYER: " + snake.score);
             }
         }
-        // Remove snakes marked for removal
+
         snakes.removeAll(snakesToRemove);
 
         if (snakes.size() <= 1) {
@@ -207,7 +190,6 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         Point newHead = new Point(playerSnake.getHead().x + playerSnake.direction.x,
                 playerSnake.getHead().y + playerSnake.direction.y);
         if (willCollide(playerSnake, newHead)) {
-            // Mark the player snake for removal.
             snakesToRemove.add(playerSnake);
             playerSnake = null;
         } else {
@@ -222,15 +204,12 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
     @Override
     protected void paintComponent(Graphics g) {
         super.paintComponent(g);
-        // Draw borders
         g.setColor(Color.WHITE);
         g.fillRect(0, 0, WIDTH * UNIT_SIZE, UNIT_SIZE);
         g.fillRect(0, HEIGHT * UNIT_SIZE - UNIT_SIZE, WIDTH * UNIT_SIZE, UNIT_SIZE);
         g.fillRect(0, 0, UNIT_SIZE, HEIGHT * UNIT_SIZE);
         g.fillRect(WIDTH * UNIT_SIZE - UNIT_SIZE, 0, UNIT_SIZE, HEIGHT * UNIT_SIZE);
-        // Draw eatable
         eatable.Paint(g, UNIT_SIZE);
-        // Draw snake
         for (Snake snake : snakes){
             snake.Paint(g, UNIT_SIZE);
         }
@@ -251,20 +230,17 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         }
     }
 
-    // KeyListener implementations
     @Override
     public void keyPressed(KeyEvent e) {
         if (e.getKeyCode() == KeyEvent.VK_ESCAPE) {
-            // Stop the timer if it's still running.
             if (timer != null && timer.isRunning()) {
                 timer.stop();
             }
-            // Get the frame, remove the game panel and add a new MainMenu.
             JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(this);
             frame.getContentPane().removeAll();
             MainMenu menu = new MainMenu(frame);
             frame.add(menu);
-            frame.pack();  // The MainMenu has its preferred size set.
+            frame.pack();
             frame.revalidate();
             frame.repaint();
             return;
@@ -276,22 +252,18 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         Point currentDir = playerSnake.direction;
 
         if (key == KeyEvent.VK_RIGHT) {
-            // Rotate 90 degrees to the left
             playerSnake.direction = new Point(-currentDir.y, currentDir.x);
         } else if (key == KeyEvent.VK_LEFT) {
-            // Rotate 90 degrees to the right
             playerSnake.direction = new Point(currentDir.y, -currentDir.x);
         }
     }
 
     @Override
     public void keyReleased(KeyEvent e) {
-        // No action needed here.
     }
 
     @Override
     public void keyTyped(KeyEvent e) {
-        // No action needed here.
     }
 
     public static void main(String[] args) {
@@ -299,7 +271,6 @@ public class AlgorithmSnake extends JPanel implements ActionListener, KeyListene
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setSize(800, 600);
         frame.setResizable(false);
-
         MainMenu menu = new MainMenu(frame);
         frame.add(menu);
         frame.setVisible(true);
@@ -320,9 +291,9 @@ class Snake {
         this.algorithm = algorithm;
         this.optimal = optimal;
         body = new ArrayList<>();
-        direction = new Point(1, 0); // Moves right initially
+        direction = new Point(1, 0);
 
-        // Initialize snake with 3 segments
+        // snakes 3 units long from start
         for (int i = 0; i < 3; i++) {
             body.add(new Point(start.x - i, start.y));
         }
@@ -353,7 +324,6 @@ class Snake {
     }
 }
 
-
 class Eatable {
     Point position;
 
@@ -365,7 +335,7 @@ class Eatable {
         Random random = new Random();
         do {
             position = new Point(random.nextInt(98) + 1, random.nextInt(98) + 1);
-        } while (allSnakeBodies.stream().anyMatch(body -> body.contains(position))); // Ensure it doesn't spawn inside the snake
+        } while (allSnakeBodies.stream().anyMatch(body -> body.contains(position)));
     }
 }
 
@@ -375,10 +345,8 @@ class Pathfinder {
         PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> n.f));
         Map<Point, Node> nodes = new HashMap<>();
         Set<Point> visited = new HashSet<>();
-
         Point start = snake.getHead();
         Point end = eatable.position;
-
         Node startNode = new Node(start, null, 0, heuristic(start, end));
         nodes.put(start, startNode);
         queue.add(startNode);
@@ -386,7 +354,7 @@ class Pathfinder {
         while (!queue.isEmpty()) {
             Node current = queue.poll();
             if (current.position.equals(end)) {
-                return reconstructPath(current); // Found a path
+                return reconstructPath(current);
             }
 
             visited.add(current.position);
@@ -396,8 +364,8 @@ class Pathfinder {
                     continue;
                 }
 
-                int g = current.g + 1; // Cost to neighbor
-                int h = heuristic(neighbor, end); // Heuristic to goal
+                int g = current.g + 1;
+                int h = heuristic(neighbor, end);
                 Node neighborNode = nodes.getOrDefault(neighbor, new Node(neighbor, null, Integer.MAX_VALUE, h));
 
                 if (g < neighborNode.g) {
@@ -406,7 +374,6 @@ class Pathfinder {
                     neighborNode.parent = current;
                     nodes.put(neighbor, neighborNode);
 
-                    // If non-optimal and target reached, return immediately
                     if (!optimal && neighbor.equals(end)) {
                         return reconstructPath(neighborNode);
                     }
@@ -414,17 +381,15 @@ class Pathfinder {
                 }
             }
         }
-        return new ArrayList<>(); // No path found
+        return new ArrayList<>();
     }
 
     public static List<Point> bfs(Snake snake, Eatable eatable, List<List<Point>> allSnakeBodies, boolean optimal, int minPos, int maxPos) {
         Queue<Node> queue = new LinkedList<>();
         Map<Point, Node> visited = new HashMap<>();
-
         Point start = snake.getHead();
         Point end = eatable.position;
-
-        Node startNode = new Node(start, null, 0, 0); // BFS doesn’t use heuristic
+        Node startNode = new Node(start, null, 0, 0);
         queue.add(startNode);
         visited.put(start, startNode);
 
@@ -437,45 +402,40 @@ class Pathfinder {
             for (Point neighbor : getNeighbors(current.position, minPos, maxPos)) {
                 if (!visited.containsKey(neighbor) && !isObstacle(neighbor, allSnakeBodies, snake)) {
                     int g = current.g + 1;
-                    Node neighborNode = new Node(neighbor, current, g, 0); // No heuristic in BFS
+                    Node neighborNode = new Node(neighbor, current, g, 0);
                     visited.put(neighbor, neighborNode);
                     queue.add(neighborNode);
                     if (!optimal && neighbor.equals(end)) {
-                        return reconstructPath(neighborNode); // Early exit if non-optimal
+                        return reconstructPath(neighborNode);
                     }
                 }
             }
         }
-        return new ArrayList<>(); // No path found
+        return new ArrayList<>();
     }
     public static List<Point> dijkstra(Snake snake, Eatable eatable, List<List<Point>> allSnakeBodies, boolean optimal, int minPos, int maxPos) {
         PriorityQueue<Node> queue = new PriorityQueue<>(Comparator.comparingInt(n -> n.g));
         Map<Point, Integer> bestG = new HashMap<>();
-
         Point start = snake.getHead();
         Point end = eatable.position;
-
-        Node startNode = new Node(start, null, 0, 0); // h=0 for Dijkstra's
+        Node startNode = new Node(start, null, 0, 0);
         bestG.put(start, 0);
         queue.add(startNode);
 
         while (!queue.isEmpty()) {
             Node current = queue.poll();
-
-            // Skip if we've found a better path to this position already
             if (current.g > bestG.getOrDefault(current.position, Integer.MAX_VALUE)) {
                 continue;
             }
 
             if (current.position.equals(end)) {
-                return reconstructPath(current); // Shortest path found
+                return reconstructPath(current);
             }
 
             for (Point neighbor : getNeighbors(current.position, minPos, maxPos)) {
                 if (isObstacle(neighbor, allSnakeBodies, snake)) {
                     continue;
                 }
-
                 int tentative_g = current.g + 1;
                 if (tentative_g < bestG.getOrDefault(neighbor, Integer.MAX_VALUE)) {
                     bestG.put(neighbor, tentative_g);
@@ -484,16 +444,15 @@ class Pathfinder {
                 }
             }
         }
-        return new ArrayList<>(); // No path found
+        return new ArrayList<>();
     }
 
     private static int heuristic(Point a, Point b) {
-        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); // Manhattan distance
+        return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); // distance in an grid struct "steps"
     }
 
     private static List<Point> reconstructPath(Node node) {
         List<Point> path = new ArrayList<>();
-        // Start from the parent of the end node to exclude the start position
         while (node.parent != null) {
             path.add(0, node.position);
             node = node.parent;
@@ -503,17 +462,16 @@ class Pathfinder {
 
     private static List<Point> getNeighbors(Point p, int minPos, int maxPos) {
         List<Point> neighbors = new ArrayList<>();
-        if (p.x < maxPos) neighbors.add(new Point(p.x + 1, p.y)); // Right
-        if (p.x > minPos) neighbors.add(new Point(p.x - 1, p.y)); // Left
-        if (p.y < maxPos) neighbors.add(new Point(p.x, p.y + 1)); // Down
-        if (p.y > minPos) neighbors.add(new Point(p.x, p.y - 1)); // Up
+        if (p.x < maxPos) neighbors.add(new Point(p.x + 1, p.y));
+        if (p.x > minPos) neighbors.add(new Point(p.x - 1, p.y));
+        if (p.y < maxPos) neighbors.add(new Point(p.x, p.y + 1));
+        if (p.y > minPos) neighbors.add(new Point(p.x, p.y - 1));
         return neighbors;
     }
 
     private static boolean isObstacle(Point p, List<List<Point>> bodies, Snake currentSnake) {
         for (List<Point> body : bodies) {
             if (body == currentSnake.body) {
-                // Exclude the tail (last segment)
                 for (int i = 0; i < body.size() - 1; i++) {
                     if (body.get(i).equals(p)) {
                         return true;
@@ -532,8 +490,8 @@ class Pathfinder {
 class Node {
     Point position;
     Node parent;
-    int g; // Cost from start
-    int f; // g + heuristic
+    int g;
+    int f;
 
     Node(Point position, Node parent, int g, int h) {
         this.position = position;
