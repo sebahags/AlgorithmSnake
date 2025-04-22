@@ -3,7 +3,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.Color;
 
-
+//class for handling the main menu
 public class MainMenu extends JPanel {
     private JFrame frame;
     private JComboBox<String> difficultyDropdown;
