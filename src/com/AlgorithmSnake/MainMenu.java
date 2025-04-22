@@ -23,8 +23,8 @@ public class MainMenu extends JPanel {
         difficultyDropdown = new JComboBox<>(difficulties);
         difficultyDropdown.setSelectedIndex(1);
 
-        simulationButton.addActionListener(e -> startGame(false)); // AI only
-        playButton.addActionListener(e -> startGame(true)); // Player mode
+        simulationButton.addActionListener(e -> startGame(false));
+        playButton.addActionListener(e -> startGame(true));
         exitButton.addActionListener(e -> System.exit(0));
 
         gbc.gridy = 0;
